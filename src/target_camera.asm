@@ -8,8 +8,9 @@ sceGeListEnQueue    equ 0x08965990
 crosshair_tex_ptr   equ 0x0Bfff360
 CROSSHAIR_DURATION  equ 45
 
-icon_x equ 0
-icon_y equ 225
+icon_size           equ 42
+icon_x              equ 0
+icon_y              equ 225
 
 .include "./src/gpu_macros.asm"
 
@@ -196,15 +197,13 @@ RENDER_LOAD equ 0x0B100130
     srl         a0, a0, 2
     li          at, select_vertices
     
-    sll         a2, a0, 5
-    sll         a3, a0, 3
-    addu        a2, a2, a3
-    sll         a3, a0, 1
-    addu        a0, a2, a3
+    li          a2, icon_size
+    mult        a0, a2
+    mflo        a0
 
-    addiu       a0, a0, icon_x+10
+    addiu       a0, a0, icon_x+(11*icon_size/42)
     sh          a0, 0x08(at)
-    addiu       a0, a0, 22
+    addiu       a0, a0, (22*icon_size/42)
     sh          a0, 0x18(at)
 
     jr          ra
@@ -273,12 +272,9 @@ normal_tex_load:
     addu        at, at, t0
     srl         a1, a0, 0x3
     
-    ; * 42
-    sll         a2, a1, 5
-    sll         a3, a1, 3
-    addu        a2, a2, a3
-    sll         a3, a1, 1
-    addu        a1, a2, a3
+    li          a2, 42
+    mult        a1, a2
+    mflo        a1
     
     
     sh          a1, 0x02(at)
@@ -289,12 +285,9 @@ normal_tex_load:
     sll         a1, a1, 0x3
     subu        a1, a0, a1
     
-    ; * 42
-    sll         a2, a1, 5
-    sll         a3, a1, 3
-    addu        a2, a2, a3
-    sll         a3, a1, 1
-    addu        a1, a2, a3
+    li          a2, 42
+    mult        a1, a2
+    mflo        a1
     
     
     sh          a1, 0x00(at)
@@ -517,14 +510,14 @@ clut_add:
 .align 0x10
 vertices:
     vertex      42, 0, 0xFFFFFFFF, icon_x, icon_y, 0
-    vertex      42+42, 42, 0xFFFFFFFF, icon_x+42, icon_y+42, 0
-    vertex      42, 0, 0xFFFFFFFF, icon_x+42, icon_y, 0
-    vertex      42+42, 42, 0xFFFFFFFF, icon_x+82, icon_y+42, 0
-    vertex      42, 0, 0xFFFFFFFF, icon_x+82, icon_y, 0
-    vertex      42+42, 42, 0xFFFFFFFF, icon_x+124, icon_y+42, 0
+    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size, icon_y+icon_size, 0
+    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_size, icon_y, 0
+    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size*2, icon_y+icon_size, 0
+    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_size*2, icon_y, 0
+    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size*3, icon_y+icon_size, 0
 select_vertices:
-    vertex      129, 56, 0xFFFFFFFF, icon_x+10, icon_y+32, 0
-    vertex      140, 63, 0xFFFFFFFF, icon_x+10+22, icon_y+32+14, 0
+    vertex      129, 56, 0xFFFFFFFF, icon_x+(11*icon_size/42), icon_y+(32*icon_size/42), 0
+    vertex      140, 63, 0xFFFFFFFF, icon_x+((11+22)*icon_size/42), icon_y+((32+14)*icon_size/42), 0
 crosshair_vertices:
     vertex      57, 142, 0xFFFFFFFF, 0, 0, 0
     vertex      82, 167, 0xFFFFFFFF, 100, 100, 0
