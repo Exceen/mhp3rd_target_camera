@@ -1,18 +1,11 @@
 .psp
 
-MONSTER_POINTER     equ 0x0A1B0AE0
-HOOK                equ 0x088E79EC
-RENDER_HOOK         equ 0x0A16A650
-ViewMatrix          equ 0x09F4F120
-sceGeListEnQueue    equ 0x08965990
-crosshair_tex_ptr   equ 0x0Bfff360
 CROSSHAIR_DURATION  equ 45
-
 icon_size           equ 42
 icon_x              equ 0
 icon_y              equ 225
 
-.include "./src/gpu_macros.asm"
+.include "gpu_macros.asm"
 
 .macro lih,dest,value
 	lui			at, value / 0x10000
@@ -29,7 +22,16 @@ icon_y              equ 225
 	sh			orig, value & 0xFFFF(at)
 .endmacro
 
-.createfile "./bin/target_cam.bin", 0x0B100000
+.createfile "../bin/adds.bin", 0x0
+    .word   LOAD_ADD
+    .word   HOOK
+    .word   main
+    .word   render
+    .word   RENDER_HOOK
+    .word   CURRENT_TASK
+.close
+
+.createfile "../bin/target_cam.bin", LOAD_ADD
 
 enabled:
     .byte   0
@@ -137,8 +139,7 @@ no_flip:
 .close
 
 
-RENDER_LOAD equ 0x0B100130
-.createfile "./bin/RENDER.bin", RENDER_LOAD
+.createfile "../bin/RENDER.bin", RENDER_LOAD
 ;  ICON RENDERING
 
 .func render
@@ -177,7 +178,7 @@ RENDER_LOAD equ 0x0B100130
     addiu       sp, sp, 0x4
     lw          a0, 0x8(sp)
     lw          v0, 0x4(sp)
-    j           RENDER_HOOK+9
+    j           RENDER_HOOK+8
     nop
     
 .endfunc
@@ -240,7 +241,7 @@ get_id_ret:
     sw          zero, 0x00(at)
     sw          zero, 0x10(at)
 
-    li          at, 0x1910
+    li          at, TEX_OFFSET
     li          a1, clut_add
     addu        a1, a1, t0
     sh          at, 0x0(a1)
@@ -260,7 +261,7 @@ normal_tex_load:
     lb          a1, 0x1(a1)
     sll         a1, a1, 6
 
-    li          at, 0x1910
+    li          at, TEX_OFFSET
     add         at, at, a1
     li          a1, clut_add
     addu        a1, a1, t0
@@ -302,7 +303,7 @@ ret:
 .area 65*2, 0x0
 
 icons:
-.include "./src/monster_icons.asm"
+.include "monster_icons.asm"
 .endarea
 .align 4
 
@@ -468,7 +469,7 @@ gpu_code:
     tfilter     0, 0
     tmode       1, 0, 0
     tpf         4
-    tbp0        0x3d2700
+    tbp0        ICON_TEX_OFFSET
     tbw0        0x160, 9
     tsize0      9, 9
 
@@ -480,26 +481,26 @@ gpu_code:
     tfunc       0, 1
 
 clut_add:
-    clutaddlo     0x3e0000
+    clutaddlo   ((ICON_TEX_OFFSET & 0xFF0000) + 0x10000)
     load_clut   2
     tflush
     prim        2, 6
 
-    clutaddlo     0x3e0000
+    clutaddlo   ((ICON_TEX_OFFSET & 0xFF0000) + 0x10000)
     load_clut   2
     tflush
     prim        2, 6
 
-    clutaddlo     0x3e0000
+    clutaddlo   ((ICON_TEX_OFFSET & 0xFF0000) + 0x10000)
     load_clut   2
     tflush
     prim        2, 6
 
     ; draw select icon
-    tbp0        0x3a6ea0
+    tbp0        CURSOR_TEX_ADD
     tbw0        256, 9
     tsize0      8, 8
-    clutaddlo   0x3af0f0
+    clutaddlo   CURSOR_CLUT_ADD
     load_clut   2
     tflush
     prim        2, 6
