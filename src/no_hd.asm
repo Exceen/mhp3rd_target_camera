@@ -10,7 +10,6 @@ EARLY_HOOK          equ 0x088E3B2C
 RENDER_HOOK         equ 0x09D63ADC
 ViewMatrix          equ 0x09B486B0
 sceGeListEnQueue    equ 0x08960CF8
-crosshair_tex_ptr   equ 0x09FFF360
 RENDER_LOAD         equ 0x089E0600
 TEX_OFFSET          equ 0xAED0
 ICON_TEX_OFFSET     equ 0x2cbcc0
