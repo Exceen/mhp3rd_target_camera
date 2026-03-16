@@ -22,6 +22,11 @@ icon_y              equ 244
 	sh			orig, value & 0xFFFF(at)
 .endmacro
 
+.macro sib,orig,value
+	lui			at, value / 0x10000
+	sb			orig, value & 0xFFFF(at)
+.endmacro
+
 .createfile "../bin/adds.bin", 0x0
     .word   LOAD_ADD
     .word   HOOK
@@ -39,9 +44,7 @@ enabled:
     .byte   0              ; +0 (CWCheat: 0x001E0400)
 selected_monster:
     .byte   0              ; +1 (CWCheat: 0x001E0401)
-    .byte   0              ; +2 padding
-btn_debounce:
-    .byte   0              ; +3 (CWCheat: 0x001E0403) — adjacent to code at +4 (non-zero byte)
+.align 4
 
 
 .func main
@@ -63,7 +66,8 @@ return:
     addiu   sp, sp, -0x4
     sw      ra, 0x0(sp)
 
-    lib     a1, selected_monster
+    li      a1, SELECTED_MON_ADDR
+    lb      a1, 0(a1)
     li      a2, MONSTER_POINTER
     addu    a1, a1, a2
     lw      a1, 0x0(a1)
@@ -203,12 +207,14 @@ no_flip:
 .endfunc
 
 .func set_cursor
-    lih         a0, selected_monster
+    li          a0, SELECTED_MON_ADDR
+    lb          a0, 0(a0)
     slti        at, a0, 9
     bne         at, zero, @continue
     nop
     li          a0, 0
-    sih         a0, selected_monster
+    li          at, SELECTED_MON_ADDR
+    sb          a0, 0(at)
 @continue:
     srl         a0, a0, 2
     li          at, select_vertices
@@ -227,13 +233,26 @@ no_flip:
     li          a1, MONSTER_POINTER
     addu        a1, a1, a0
     lw          a0, 0x0(a1)
-    beql        a0, zero, get_id_ret
+    beql        a0, zero, @@ret
     li          v0, 0x0
     lb          v0, 0x62(a0)
     slti        at, v0, 65
-    beql        at, zero, get_id_ret
+    beql        at, zero, @@ret
     li          v0, 0x0
-get_id_ret:
+    ; Check large monster bitmap (only show icons for large monsters)
+    addiu       a1, v0, -1         ; a1 = icon_id - 1 (0-based)
+    srl         a2, a1, 3          ; a2 = byte index
+    li          a3, large_bitmap
+    addu        a3, a3, a2
+    lbu         a3, 0(a3)          ; a3 = bitmap byte
+    andi        a2, a1, 7          ; a2 = bit index
+    li          a1, 1
+    sllv        a1, a1, a2         ; a1 = bit mask
+    and         a1, a3, a1         ; test bit
+    bnez        a1, @@ret          ; large monster, keep v0
+    nop
+    li          v0, 0x0            ; small monster, return 0
+@@ret:
     jr          ra
     nop
 .endfunc
@@ -293,6 +312,15 @@ icons:
 .include "monster_icons.asm"
 .endarea
 .align 4
+
+; Large monster bitmap (1=large, 0=small) for icon IDs 1-64
+; Large: Rathian(1)-Uragaan(9), Great Jaggi(12), Great Baggi(14),
+;   Gold Rathian(15), Royal Ludroth(16), Silver Rathalos(18)-Black Diablos(20),
+;   Black Tigrex(23)-Jhen Mohran(25), Green Nargacuga(32),
+;   Zinogre(40)-Nibelsnarf(47), Crimson Qurupeco(51)-Bulldrome(62)
+large_bitmap:
+    .word 0x81CEE9FF  ; IDs 1-32
+    .word 0x3FFC7F80  ; IDs 33-64
 
 gpu_code:
     offset      0
