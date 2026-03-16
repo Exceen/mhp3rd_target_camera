@@ -1,6 +1,10 @@
 
 _C0 ==== Target Camera =========
 _L 0x00000000 0x00000000
+_C1  TC Auto-activate (on quest entry)
+_L 0xE0020000 0x001E0400
+_L 0xE1010000 0x015A9862
+_L 0x001E0400 0x00000001
 _C1  TC Enable (L+DpadUp)
 _L 0xD0000000 0x10000110
 _L 0x001E0400 0x00000001
