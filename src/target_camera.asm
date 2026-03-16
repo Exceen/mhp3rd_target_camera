@@ -66,16 +66,44 @@ return:
     addiu   sp, sp, -0x4
     sw      ra, 0x0(sp)
 
+    ; Try selected monster first
     li      a1, SELECTED_MON_ADDR
     lb      a1, 0(a1)
     li      a2, MONSTER_POINTER
     addu    a1, a1, a2
     lw      a1, 0x0(a1)
+    beq     a1, zero, @@scan
+    nop
+    lh      t0, 0x246(a1)
+    bgtz    t0, @@try_lock          ; alive, try to lock
+    nop
+
+@@scan:
+    ; Selected monster dead/null — find first alive large monster
+    li      t1, 0                   ; slot offset (0, 4, 8)
+@@scan_loop:
+    li      a2, MONSTER_POINTER
+    addu    a2, a2, t1
+    lw      a1, 0(a2)
+    beq     a1, zero, @@scan_next
+    nop
+    lh      t0, 0x246(a1)
+    bgtz    t0, @@try_lock          ; found alive monster
+    nop
+@@scan_next:
+    addiu   t1, t1, 4
+    slti    at, t1, 12
+    bnez    at, @@scan_loop
+    nop
+    j       @@ret                   ; no alive monsters found
+    nop
+
+@@try_lock:
+    ; a1 = alive monster entity
     jal     monster_in_area
     nop
     beq     t0, zero, @@ret
     nop
-
     jal     get_angle
     nop
 
@@ -168,12 +196,11 @@ no_flip:
     beqz    t0, @render_skip
     nop
 
-    addiu       sp, sp, -0x4
-    sw          ra, 0x00(sp)
+    addiu       sp, sp, -0x8
+    sw          ra, 0x04(sp)
+    sw          zero, 0x00(sp)     ; alive_mask = 0
 
-    jal         set_cursor
-    nop
-
+    ; Load icons and track which slots are alive
     li          t1, 0x0
     li          t0, 0x0
 @loop:
@@ -182,10 +209,61 @@ no_flip:
     jal         load_texture
     move        a0, v0
 
+    ; Track alive slots: if get_id returned non-zero, set bit
+    beqz        v0, @@not_alive
+    nop
+    lw          a0, 0x00(sp)       ; load alive_mask
+    srl         a1, t1, 2          ; slot index (0,1,2)
+    li          a2, 1
+    sllv        a2, a2, a1
+    or          a0, a0, a2
+    sw          a0, 0x00(sp)       ; store alive_mask
+@@not_alive:
+
     addiu       t1, t1, 4
     addiu       t0, t0, 0x10
     slti        at, t0, 0x30
     bne         at, zero, @loop
+    nop
+
+    ; Check if any monsters alive
+    lw          a0, 0x00(sp)
+    beqz        a0, @render_return ; no alive monsters, hide UI
+
+    ; Find first alive slot for cursor
+    nop
+    andi        at, a0, 1          ; slot 0 alive?
+    bnez        at, @@cursor_0
+    nop
+    andi        at, a0, 2          ; slot 1 alive?
+    bnez        at, @@cursor_1
+    nop
+    li          a0, 8              ; must be slot 2
+    j           @@position_cursor
+    nop
+@@cursor_0:
+    li          a0, 0
+    j           @@position_cursor
+    nop
+@@cursor_1:
+    li          a0, 4
+@@position_cursor:
+    ; Check if selected monster is alive; if so use it, otherwise use first alive
+    li          a1, SELECTED_MON_ADDR
+    lb          a1, 0(a1)
+    lw          a2, 0x00(sp)       ; alive_mask
+    srl         a3, a1, 2          ; selected slot index
+    li          at, 1
+    sllv        at, at, a3
+    and         at, a2, at
+    bnez        at, @@use_selected ; selected is alive, use it
+    nop
+    j           @@set_cursor       ; selected is dead, use first alive (a0)
+    nop
+@@use_selected:
+    move        a0, a1             ; use selected_monster
+@@set_cursor:
+    jal         set_cursor_val
     nop
 
     li          a0, gpu_code
@@ -195,8 +273,8 @@ no_flip:
     li          a1, 0x0
 
 @render_return:
-    lw          ra, 0x0(sp)
-    addiu       sp, sp, 0x4
+    lw          ra, 0x04(sp)
+    addiu       sp, sp, 0x8
 
 @render_skip:
     lw          a0, 0x8(sp)
@@ -206,16 +284,8 @@ no_flip:
 
 .endfunc
 
-.func set_cursor
-    li          a0, SELECTED_MON_ADDR
-    lb          a0, 0(a0)
-    slti        at, a0, 9
-    bne         at, zero, @continue
-    nop
-    li          a0, 0
-    li          at, SELECTED_MON_ADDR
-    sb          a0, 0(at)
-@continue:
+; a0 = slot value (0, 4, or 8)
+.func set_cursor_val
     srl         a0, a0, 2
     li          at, select_vertices
     li          a2, icon_stride
@@ -233,25 +303,31 @@ no_flip:
     li          a1, MONSTER_POINTER
     addu        a1, a1, a0
     lw          a0, 0x0(a1)
-    beql        a0, zero, @@ret
+    beql        a0, zero, @@fail
     li          v0, 0x0
+    ; Check HP > 0 (entity+0x246 = current HP, signed halfword)
+    lh          a1, 0x246(a0)
+    blez        a1, @@fail
+    nop
+    ; Get icon ID
     lb          v0, 0x62(a0)
     slti        at, v0, 65
-    beql        at, zero, @@ret
+    beql        at, zero, @@fail
     li          v0, 0x0
-    ; Check large monster bitmap (only show icons for large monsters)
-    addiu       a1, v0, -1         ; a1 = icon_id - 1 (0-based)
-    srl         a2, a1, 3          ; a2 = byte index
+    ; Check large monster bitmap
+    addiu       a1, v0, -1
+    srl         a2, a1, 3
     li          a3, large_bitmap
     addu        a3, a3, a2
-    lbu         a3, 0(a3)          ; a3 = bitmap byte
-    andi        a2, a1, 7          ; a2 = bit index
+    lbu         a3, 0(a3)
+    andi        a2, a1, 7
     li          a1, 1
-    sllv        a1, a1, a2         ; a1 = bit mask
-    and         a1, a3, a1         ; test bit
-    bnez        a1, @@ret          ; large monster, keep v0
+    sllv        a1, a1, a2
+    and         a1, a3, a1
+    bnez        a1, @@ret
     nop
-    li          v0, 0x0            ; small monster, return 0
+@@fail:
+    li          v0, 0x0
 @@ret:
     jr          ra
     nop
