@@ -36,7 +36,7 @@ icon_y              equ 225
 .createfile "../bin/target_cam.bin", LOAD_ADD
 
 enabled:
-    .byte   1
+    .byte   0
 selected_monster:
     .byte   0
 .align 4
@@ -45,8 +45,7 @@ selected_monster:
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
 
-    li      t0, enabled
-    lb      t0, 0x0(t0)
+    lib     t0, enabled
     bne     t0, zero, find_angle
     nop
 
@@ -165,9 +164,14 @@ no_flip:
 ;  ICON RENDERING
 
 .func render
+    ; Skip rendering if mod is disabled
+    lib     t0, enabled
+    beqz    t0, @render_skip
+    nop
+
     addiu       sp, sp, -0x4
     sw          ra, 0x00(sp)
-    
+
     jal         set_cursor
     nop
 
@@ -195,14 +199,16 @@ no_flip:
     nop
     
 @render_return:
-
     lw          ra, 0x0(sp)
     addiu       sp, sp, 0x4
+
+@render_skip:
+    ; Execute original replaced instructions and return
     lw          a0, 0x8(sp)
     lw          v0, 0x4(sp)
     j           RENDER_HOOK+8
     nop
-    
+
 .endfunc
 
 .func set_cursor
