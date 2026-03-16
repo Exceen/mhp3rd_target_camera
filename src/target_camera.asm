@@ -1,8 +1,9 @@
 .psp
 
-icon_size           equ 42
-icon_x              equ 0
-icon_y              equ 225
+icon_size           equ 24
+icon_stride         equ 25            ; icon_size + 1px spacing
+icon_x              equ 3
+icon_y              equ 244
 
 .include "gpu_macros.asm"
 
@@ -211,7 +212,7 @@ no_flip:
 @continue:
     srl         a0, a0, 2
     li          at, select_vertices
-    li          a2, icon_size
+    li          a2, icon_stride
     mult        a0, a2
     mflo        a0
     addiu       a0, a0, icon_x+(11*icon_size/42)
@@ -335,11 +336,12 @@ clut_add:
 vertices:
     vertex      42, 0, 0xFFFFFFFF, icon_x, icon_y, 0
     vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size, icon_y+icon_size, 0
-    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_size, icon_y, 0
-    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size*2, icon_y+icon_size, 0
-    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_size*2, icon_y, 0
-    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_size*3, icon_y+icon_size, 0
+    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_stride, icon_y, 0
+    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_stride+icon_size, icon_y+icon_size, 0
+    vertex      42, 0, 0xFFFFFFFF, icon_x+icon_stride*2, icon_y, 0
+    vertex      42+42, 42, 0xFFFFFFFF, icon_x+icon_stride*2+icon_size, icon_y+icon_size, 0
 select_vertices:
     vertex      129, 56, 0xFFFFFFFF, icon_x+(11*icon_size/42), icon_y+(32*icon_size/42), 0
     vertex      140, 63, 0xFFFFFFFF, icon_x+((11+22)*icon_size/42), icon_y+((32+14)*icon_size/42), 0
+
 .close
