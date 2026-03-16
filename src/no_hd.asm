@@ -10,9 +10,12 @@ EARLY_HOOK          equ 0x088E3B2C
 RENDER_HOOK         equ 0x09D63ADC
 ViewMatrix          equ 0x09B486B0
 sceGeListEnQueue    equ 0x08960CF8
-RENDER_LOAD         equ 0x089E0800
+RENDER_LOAD         equ 0x089E0C00
 SELECTED_MON_ADDR   equ 0x08800C00
 TRIGGER_ADDR        equ 0x08800C02     ; debounce halfword (0xFAFA = triggered)
+ALIVE_COUNT_ADDR    equ 0x08800C08     ; byte: number of alive large monsters
+AREA_MASK_ADDR      equ 0x08800C0C     ; byte: bit per slot (1=in area, 0=different area)
+PLAYER_AREA_ADDR    equ 0x08800C10     ; byte: player's current area (set by cam_main)
 BUTTONS_PTR         equ 0x09BB7A7C
 
 BUTTON_L            equ 0x0100

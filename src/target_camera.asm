@@ -51,6 +51,20 @@ selected_monster:
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
 
+    ; Save player area (a0 = player entity at hook point)
+    lui     t0, 0x0880
+    sltu    at, a0, t0
+    bnez    at, @@skip_area
+    nop
+    lui     t0, 0x0A00
+    sltu    at, a0, t0
+    beqz    at, @@skip_area
+    nop
+    lb      t0, 0xD6(a0)
+    li      t1, PLAYER_AREA_ADDR
+    sb      t0, 0(t1)
+@@skip_area:
+
     lib     t0, enabled
     bne     t0, zero, find_angle
     nop
@@ -331,6 +345,33 @@ no_flip:
     nop
 
 @@btn_done:
+    ; === Area check for icon brightness ===
+    ; Player area saved to PLAYER_AREA_ADDR by cam_main (updates on L press)
+    li      t5, PLAYER_AREA_ADDR
+    lb      t5, 0(t5)
+    li      t4, 0                  ; area_mask = 0
+    li      t1, 0
+@@area_loop:
+    li      t2, MONSTER_POINTER
+    addu    t2, t2, t1
+    lw      t2, 0(t2)
+    beq     t2, zero, @@area_next
+    nop
+    lb      t3, 0xD6(t2)
+    bne     t3, t5, @@area_next
+    nop
+    srl     t3, t1, 2
+    li      t2, 1
+    sllv    t2, t2, t3
+    or      t4, t4, t2
+@@area_next:
+    addiu   t1, t1, 4
+    slti    at, t1, 12
+    bnez    at, @@area_loop
+    nop
+    li      t0, AREA_MASK_ADDR
+    sb      t4, 0(t0)
+
 @@skip:
     j       EARLY_HOOK + 8
     nop
@@ -365,6 +406,28 @@ no_flip:
     ; Alive monster: render at compacted position t0
     jal         load_texture
     move        a0, v0
+
+    ; Icon brightness: check area_mask for this slot
+    li          a0, AREA_MASK_ADDR
+    lbu         a0, 0(a0)
+    srl         a1, t1, 2             ; slot index (0,1,2)
+    li          a2, 1
+    sllv        a2, a2, a1
+    and         a2, a0, a2
+    bnez        a2, @@bright
+    nop
+    ; Not in area — dim
+    li          a3, 0xFF666666
+    j           @@set_color
+    nop
+@@bright:
+    li          a3, 0xFFFFFFFF
+@@set_color:
+    li          a2, vertices
+    addu        a2, a2, t0
+    addu        a2, a2, t0             ; a2 = vertices + t0*2 (each vertex pair = 32 bytes)
+    sw          a3, 0x04(a2)           ; vertex 1 color
+    sw          a3, 0x14(a2)           ; vertex 2 color
 
     ; Check if this is the selected monster
     li          a0, SELECTED_MON_ADDR
@@ -413,6 +476,10 @@ no_flip:
     j           @@zero_remaining
     nop
 @@zero_done:
+
+    ; Store alive count to scratch space
+    li          at, ALIVE_COUNT_ADDR
+    sb          t5, 0(at)
 
     ; Check if any alive
     beqz        t5, @render_return
