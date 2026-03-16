@@ -29,12 +29,14 @@ icon_y              equ 225
     .word   render
     .word   RENDER_HOOK
     .word   CURRENT_TASK
+    .word   early_main
+    .word   EARLY_HOOK
 .close
 
 .createfile "../bin/target_cam.bin", LOAD_ADD
 
 enabled:
-    .byte   0
+    .byte   1
 selected_monster:
     .byte   0
 .align 4
@@ -42,7 +44,7 @@ selected_monster:
 .func main
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
-    
+
     li      t0, enabled
     lb      t0, 0x0(t0)
     bne     t0, zero, find_angle
@@ -135,6 +137,26 @@ no_flip:
     slti    t0, t0, 0x1
 .endfunc
 
+; Early hook — runs unconditionally every frame
+; Replaces: sw s1, 0xB4(sp) / swc1 f22, 0xE8(sp)
+.func early_main
+    sw      s1, 0xB4(sp)
+    swc1    f22, 0xE8(sp)
+
+    ; Install render hook if overlay loaded
+    li      t0, CURRENT_TASK
+    lhu     t0, 0(t0)
+    li      t1, 0x6167
+    bne     t0, t1, @@skip
+    nop
+    li      t0, RENDER_HOOK
+    li      t1, 0x08000000 | (render >> 2)
+    sw      t1, 0(t0)
+    sw      zero, 4(t0)
+@@skip:
+    j       EARLY_HOOK + 8
+    nop
+.endfunc
 
 .close
 
@@ -308,7 +330,7 @@ icons:
 .align 4
 
 crosshair_timer:
-    .word       0xDEADBEEF
+    .word       0x00000000
 
 .func crosshair_stuff
     li          a1, crosshair_timer
