@@ -346,74 +346,83 @@ no_flip:
     beqz    t0, @render_skip
     nop
 
-    addiu       sp, sp, -0x8
-    sw          ra, 0x04(sp)
-    sw          zero, 0x00(sp)     ; alive_mask = 0
+    addiu       sp, sp, -0x10
+    sw          ra, 0x0C(sp)
+    sw          zero, 0x08(sp)     ; cursor_pos = -1 (not found yet)
+    addiu       at, zero, -1
+    sw          at, 0x08(sp)
 
-    ; Load icons and track which slots are alive
-    li          t1, 0x0
-    li          t0, 0x0
+    ; Load icons compacted: only alive monsters get positions
+    li          t1, 0x0            ; slot offset (0, 4, 8)
+    li          t0, 0x0            ; vertex offset (advances only for alive)
+    li          t5, 0x0            ; alive count
 @loop:
     jal         get_id
     move        a0, t1
+    beqz        v0, @@skip_slot
+    nop
+
+    ; Alive monster: render at compacted position t0
     jal         load_texture
     move        a0, v0
 
-    ; Track alive slots: if get_id returned non-zero, set bit
-    beqz        v0, @@not_alive
+    ; Check if this is the selected monster
+    li          a0, SELECTED_MON_ADDR
+    lbu         a0, 0(a0)
+    beq         a0, t1, @@is_selected
     nop
-    lw          a0, 0x00(sp)       ; load alive_mask
-    srl         a1, t1, 2          ; slot index (0,1,2)
-    li          a2, 1
-    sllv        a2, a2, a1
-    or          a0, a0, a2
-    sw          a0, 0x00(sp)       ; store alive_mask
-@@not_alive:
-
-    addiu       t1, t1, 4
+    ; Not selected — check if this is the first alive (fallback cursor)
+    lw          a0, 0x08(sp)
+    bgez        a0, @@not_first    ; already found a cursor target
+    nop
+    ; First alive monster — save as fallback cursor position
+    sw          t0, 0x08(sp)
+@@not_first:
+    j           @@advance_pos
+    nop
+@@is_selected:
+    ; Selected and alive — cursor goes here
+    sw          t0, 0x08(sp)
+@@advance_pos:
     addiu       t0, t0, 0x10
+    addiu       t5, t5, 1
+    j           @@next_slot
+    nop
+
+@@skip_slot:
+    ; Dead/empty: zero out vertex at current position t0
+    ; (only if we haven't used all 3 vertex pairs yet)
     slti        at, t0, 0x30
-    bne         at, zero, @loop
+    beqz        at, @@next_slot
+    nop
+@@next_slot:
+    addiu       t1, t1, 4
+    slti        at, t1, 12
+    bnez        at, @loop
     nop
 
-    ; Check if any monsters alive
-    lw          a0, 0x00(sp)
-    beqz        a0, @render_return ; no alive monsters, hide UI
-
-    ; Find first alive slot for cursor
+    ; Zero remaining vertex positions
+@@zero_remaining:
+    slti        at, t0, 0x30
+    beqz        at, @@zero_done
     nop
-    andi        at, a0, 1          ; slot 0 alive?
-    bnez        at, @@cursor_0
-    nop
-    andi        at, a0, 2          ; slot 1 alive?
-    bnez        at, @@cursor_1
-    nop
-    li          a0, 8              ; must be slot 2
-    j           @@position_cursor
-    nop
-@@cursor_0:
     li          a0, 0
-    j           @@position_cursor
+    jal         load_texture
+    move        a0, zero           ; icon_id=0 zeros the vertex
+    addiu       t0, t0, 0x10
+    j           @@zero_remaining
     nop
-@@cursor_1:
-    li          a0, 4
-@@position_cursor:
-    ; Check if selected monster is alive; if so use it, otherwise use first alive
-    li          a1, SELECTED_MON_ADDR
-    lb          a1, 0(a1)
-    lw          a2, 0x00(sp)       ; alive_mask
-    srl         a3, a1, 2          ; selected slot index
-    li          at, 1
-    sllv        at, at, a3
-    and         at, a2, at
-    bnez        at, @@use_selected ; selected is alive, use it
+@@zero_done:
+
+    ; Check if any alive
+    beqz        t5, @render_return
     nop
-    j           @@set_cursor       ; selected is dead, use first alive (a0)
+
+    ; Position cursor
+    lw          a0, 0x08(sp)       ; cursor vertex offset
+    bltz        a0, @render_return ; shouldn't happen but safety
     nop
-@@use_selected:
-    move        a0, a1             ; use selected_monster
-@@set_cursor:
-    jal         set_cursor_val
+    jal         set_cursor_pos
     nop
 
     li          a0, gpu_code
@@ -423,8 +432,8 @@ no_flip:
     li          a1, 0x0
 
 @render_return:
-    lw          ra, 0x04(sp)
-    addiu       sp, sp, 0x8
+    lw          ra, 0x0C(sp)
+    addiu       sp, sp, 0x10
 
 @render_skip:
     lw          a0, 0x8(sp)
@@ -434,9 +443,9 @@ no_flip:
 
 .endfunc
 
-; a0 = slot value (0, 4, or 8)
-.func set_cursor_val
-    srl         a0, a0, 2
+; a0 = vertex offset (0x00, 0x10, 0x20) = compacted position * 16
+.func set_cursor_pos
+    srl         a0, a0, 4          ; position index (0, 1, 2)
     li          at, select_vertices
     li          a2, icon_stride
     mult        a0, a2
