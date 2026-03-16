@@ -181,6 +181,156 @@ no_flip:
     li      t1, 0x08000000 | (render >> 2)
     sw      t1, 0(t0)
     sw      zero, 4(t0)
+    ; === Button handling (MHFU-style with trigger debounce) ===
+    ; Read buttons
+    lw      t0, 0x7A7C(s0)         ; controller state pointer (s0=0x09BB0000)
+    beq     t0, zero, @@btn_done
+    nop
+    ; Validate pointer is in PSP user memory range (0x08800000-0x0A000000)
+    lui     t2, 0x0880
+    sltu    at, t0, t2
+    bnez    at, @@btn_done          ; below 0x08800000, invalid
+    nop
+    lui     t2, 0x0A00
+    sltu    at, t0, t2
+    beqz    at, @@btn_done          ; above 0x0A000000, invalid
+    nop
+    lhu     t1, 0(t0)              ; t1 = held buttons
+
+    ; If neither L+DpadLeft nor L+DpadRight: clear trigger
+    li      t2, BUTTON_L | BUTTON_DPAD_RIGHT
+    and     t3, t1, t2
+    beq     t3, t2, @@btn_check_trigger
+    nop
+    li      t2, BUTTON_L | BUTTON_DPAD_LEFT
+    and     t3, t1, t2
+    beq     t3, t2, @@btn_check_trigger
+    nop
+    ; Neither direction held — clear trigger
+    li      t0, TRIGGER_ADDR
+    sh      zero, 0(t0)
+    j       @@btn_done
+    nop
+
+@@btn_check_trigger:
+    ; If trigger == 0xFAFA, already processed this press
+    li      t0, TRIGGER_ADDR
+    lhu     t2, 0(t0)
+    li      t3, 0xFAFA
+    beq     t2, t3, @@btn_done
+    nop
+
+    ; L+DpadUp → enable
+    li      t2, BUTTON_L | BUTTON_DPAD_UP
+    and     t3, t1, t2
+    bne     t3, t2, @@btn_not_enable
+    nop
+    li      t0, 1
+    sib     t0, enabled
+    j       @@btn_done
+    nop
+@@btn_not_enable:
+
+    ; L+DpadDown → disable
+    li      t2, BUTTON_L | BUTTON_DPAD_DOWN
+    and     t3, t1, t2
+    bne     t3, t2, @@btn_not_disable
+    nop
+    sib     zero, enabled
+    j       @@btn_done
+    nop
+@@btn_not_disable:
+
+    ; L+DpadRight (not R) → cycle right
+    li      t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_RIGHT
+    and     t3, t1, t2
+    li      t2, BUTTON_L | BUTTON_DPAD_RIGHT
+    bne     t3, t2, @@btn_not_right
+    nop
+    ; Set trigger
+    li      t0, TRIGGER_ADDR
+    li      t2, 0xFAFA
+    sh      t2, 0(t0)
+    ; If not enabled, just enable
+    lib     t0, enabled
+    bnez    t0, @@do_cycle_right
+    nop
+    li      t0, 1
+    sib     t0, enabled
+    j       @@btn_done
+    nop
+@@do_cycle_right:
+    ; Scan forward from current selected for next alive large monster
+    li      t5, SELECTED_MON_ADDR
+    lbu     t0, 0(t5)              ; current selected (0, 4, 8)
+    li      t4, 3                  ; check up to 3 slots
+@@sr_next:
+    beqz    t4, @@btn_done
+    addiu   t4, t4, -1
+    addiu   t0, t0, 4
+    slti    at, t0, 12
+    bnez    at, @@sr_check
+    nop
+    li      t0, 0                  ; wrap to slot 0
+@@sr_check:
+    li      t2, MONSTER_POINTER
+    addu    t2, t2, t0
+    lw      t2, 0(t2)
+    beq     t2, zero, @@sr_next   ; null pointer, skip
+    nop
+    lh      t3, 0x246(t2)
+    blez    t3, @@sr_next          ; dead, skip
+    nop
+    ; Found alive monster — store selection
+    sb      t0, 0(t5)
+    j       @@btn_done
+    nop
+
+@@btn_not_right:
+    ; L+DpadLeft (not R) → cycle left
+    li      t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_LEFT
+    and     t3, t1, t2
+    li      t2, BUTTON_L | BUTTON_DPAD_LEFT
+    bne     t3, t2, @@btn_done
+    nop
+    ; Set trigger
+    li      t0, TRIGGER_ADDR
+    li      t2, 0xFAFA
+    sh      t2, 0(t0)
+    ; If not enabled, just enable
+    lib     t0, enabled
+    bnez    t0, @@do_cycle_left
+    nop
+    li      t0, 1
+    sib     t0, enabled
+    j       @@btn_done
+    nop
+@@do_cycle_left:
+    ; Scan backward from current selected
+    li      t5, SELECTED_MON_ADDR
+    lbu     t0, 0(t5)
+    li      t4, 3
+@@sl_next:
+    beqz    t4, @@btn_done
+    addiu   t4, t4, -1
+    addiu   t0, t0, -4
+    bgez    t0, @@sl_check
+    nop
+    li      t0, 8                  ; wrap to slot 2
+@@sl_check:
+    li      t2, MONSTER_POINTER
+    addu    t2, t2, t0
+    lw      t2, 0(t2)
+    beq     t2, zero, @@sl_next
+    nop
+    lh      t3, 0x246(t2)
+    blez    t3, @@sl_next
+    nop
+    sb      t0, 0(t5)
+    j       @@btn_done
+    nop
+
+@@btn_done:
 @@skip:
     j       EARLY_HOOK + 8
     nop
