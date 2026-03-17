@@ -179,6 +179,12 @@ no_flip:
     slti    t0, t0, 0x1
 .endfunc
 
+; Large monster bitmap (duplicate for early hook cycling)
+.align 4
+cycle_large_bitmap:
+    .word 0x81CEE9FF  ; IDs 1-32
+    .word 0x3FFC7F80  ; IDs 33-64
+
 ; Early hook — runs unconditionally every frame
 ; Replaces: sw s1, 0xB4(sp) / swc1 f22, 0xE8(sp)
 .func early_main
@@ -295,7 +301,25 @@ no_flip:
     lh      t3, 0x246(t2)
     blez    t3, @@sr_next          ; dead, skip
     nop
-    ; Found alive monster — store selection
+    ; Check large monster bitmap
+    lb      t3, 0x62(t2)          ; icon ID
+    beqz    t3, @@sr_next
+    nop
+    slti    at, t3, 65
+    beqz    at, @@sr_next
+    nop
+    addiu   t3, t3, -1
+    srl     t6, t3, 3
+    li      t7, cycle_large_bitmap
+    addu    t6, t7, t6
+    lbu     t6, 0(t6)
+    andi    t3, t3, 7
+    li      t7, 1
+    sllv    t7, t7, t3
+    and     t6, t6, t7
+    beqz    t6, @@sr_next          ; not a large monster, skip
+    nop
+    ; Found alive large monster — store selection
     sb      t0, 0(t5)
     j       @@btn_done
     nop
@@ -339,6 +363,24 @@ no_flip:
     nop
     lh      t3, 0x246(t2)
     blez    t3, @@sl_next
+    nop
+    ; Check large monster bitmap
+    lb      t3, 0x62(t2)
+    beqz    t3, @@sl_next
+    nop
+    slti    at, t3, 65
+    beqz    at, @@sl_next
+    nop
+    addiu   t3, t3, -1
+    srl     t6, t3, 3
+    li      t7, cycle_large_bitmap
+    addu    t6, t7, t6
+    lbu     t6, 0(t6)
+    andi    t3, t3, 7
+    li      t7, 1
+    sllv    t7, t7, t3
+    and     t6, t6, t7
+    beqz    t6, @@sl_next
     nop
     sb      t0, 0(t5)
     j       @@btn_done

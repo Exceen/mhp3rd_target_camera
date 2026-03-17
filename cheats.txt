@@ -1,4 +1,3 @@
-
 _C0 ==== Target Camera =========
 _L 0x00000000 0x00000000
 _C1  TC Auto-activate (on quest entry)
