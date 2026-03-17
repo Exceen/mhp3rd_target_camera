@@ -15,7 +15,8 @@ SELECTED_MON_ADDR   equ 0x08800C00
 TRIGGER_ADDR        equ 0x08800C02     ; debounce halfword (0xFAFA = triggered)
 ALIVE_COUNT_ADDR    equ 0x08800C08     ; byte: number of alive large monsters
 AREA_MASK_ADDR      equ 0x08800C0C     ; byte: bit per slot (1=in area, 0=different area)
-PLAYER_AREA_ADDR    equ 0x08800C10     ; byte: player's current area (set by cam_main)
+PLAYER_AREA_ADDR    equ 0x08800C10     ; byte: player's current area (derived from player entity)
+PLAYER_ENTITY_ADDR  equ 0x08800C14     ; word: player entity pointer (set by cam_main on first L press)
 BUTTONS_PTR         equ 0x09BB7A7C
 
 BUTTON_L            equ 0x0100

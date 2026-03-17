@@ -51,19 +51,19 @@ selected_monster:
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
 
-    ; Save player area (a0 = player entity at hook point)
+    ; Save player entity pointer (a0 = player entity at hook point)
+    ; Pointer stays valid for the entire quest
     lui     t0, 0x0880
     sltu    at, a0, t0
-    bnez    at, @@skip_area
+    bnez    at, @@skip_save
     nop
     lui     t0, 0x0A00
     sltu    at, a0, t0
-    beqz    at, @@skip_area
+    beqz    at, @@skip_save
     nop
-    lb      t0, 0xD6(a0)
-    li      t1, PLAYER_AREA_ADDR
-    sb      t0, 0(t1)
-@@skip_area:
+    li      t1, PLAYER_ENTITY_ADDR
+    sw      a0, 0(t1)
+@@skip_save:
 
     lib     t0, enabled
     bne     t0, zero, find_angle
@@ -406,9 +406,15 @@ cycle_large_bitmap:
     sw      t1, 0x7A68(s0)
 @@no_suppress:
     ; === Area check for icon brightness ===
-    ; Player area saved to PLAYER_AREA_ADDR by cam_main (updates on L press)
-    li      t5, PLAYER_AREA_ADDR
-    lb      t5, 0(t5)
+    ; Read player area from saved entity pointer (set by cam_main on first L press)
+    li      t5, PLAYER_ENTITY_ADDR
+    lw      t5, 0(t5)             ; player entity pointer
+    beqz    t5, @@skip            ; not initialized yet (no L press yet)
+    nop
+    lb      t5, 0xD6(t5)          ; player's current area byte
+    ; Save to PLAYER_AREA_ADDR for reference
+    li      t0, PLAYER_AREA_ADDR
+    sb      t5, 0(t0)
     li      t4, 0                  ; area_mask = 0
     li      t1, 0
 @@area_loop:
