@@ -345,6 +345,24 @@ no_flip:
     nop
 
 @@btn_done:
+    ; === D-pad camera suppression when L is held ===
+    ; Button state is inverted (1=not pressed, 0=pressed)
+    ; SET d-pad bits to force "not pressed"
+    lw      t0, 0x7A7C(s0)
+    beq     t0, zero, @@no_suppress
+    nop
+    lhu     t1, 0(t0)
+    andi    t2, t1, BUTTON_L
+    beq     t2, zero, @@no_suppress
+    nop
+    ; Suppress vertical d-pad (Up+Down) when L held
+    lw      t1, 0x7A64(s0)
+    ori     t1, t1, 0x0050         ; DpadUp(0x10) + DpadDown(0x40)
+    sw      t1, 0x7A64(s0)
+    lw      t1, 0x7A68(s0)
+    ori     t1, t1, 0x0050
+    sw      t1, 0x7A68(s0)
+@@no_suppress:
     ; === Area check for icon brightness ===
     ; Player area saved to PLAYER_AREA_ADDR by cam_main (updates on L press)
     li      t5, PLAYER_AREA_ADDR
