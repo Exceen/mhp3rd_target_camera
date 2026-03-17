@@ -9,8 +9,6 @@ import os
 SECTOR_SIZE = 2048
 EBOOT_BASE = 0x0880134C  # vaddr 0x08804000, file_offset 0x2CB4
 
-# Scratch space addresses (must match no_hd.asm)
-SELECTED_MON_ADDR = 0x08800C00
 CW_BASE = 0x08800000
 
 
@@ -114,7 +112,6 @@ def patch_iso(iso_path, eboot_offset):
 def generate_cheats(load_add):
     """Generate CWCheat codes from binary addresses."""
     enabled_cw = f"0x{load_add - CW_BASE:08X}"
-    sel_mon_cw = f"0x{SELECTED_MON_ADDR - CW_BASE:08X}"
 
     # MONSTER_POINTER upper halfwords for auto-activate
     mp_base = 0x09DA9860
@@ -138,16 +135,6 @@ _C1  TC Disable (L+DpadDown)
 _L 0xD0000001 0x10000140
 _L {enabled_cw} 0x00000000
 _L 0x{load_add + 1 - CW_BASE:08X} 0x00000001
-_C0  TC Select monster 1 (L+DpadLeft) [legacy, assembly handles cycling]
-_L 0xD0000002 0x10000180
-_L 0xE1010000 {enabled_cw}
-_L {sel_mon_cw} 0x00000000
-_L {enabled_cw} 0x00000001
-_C0  TC Select monster 2 (L+DpadRight) [legacy, assembly handles cycling]
-_L 0xD0000002 0x10000120
-_L 0xE1010000 {enabled_cw}
-_L {sel_mon_cw} 0x00000004
-_L {enabled_cw} 0x00000001
 """
     return cheats.strip() + "\n"
 
