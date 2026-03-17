@@ -16,6 +16,7 @@ TRIGGER_ADDR        equ 0x08800C02     ; debounce halfword (0xFAFA = triggered)
 ALIVE_COUNT_ADDR    equ 0x08800C08     ; byte: number of alive large monsters
 AREA_MASK_ADDR      equ 0x08800C0C     ; byte: bit per slot (1=in area, 0=different area)
 PLAYER_AREA_ADDR    equ 0x08800C10     ; byte: player's current area (from s5 in early hook)
+BTN_PROC_RET        equ 0x088A3594     ; button processing function return (lw ra + lw s0)
 BUTTONS_PTR         equ 0x09BB7A7C
 
 BUTTON_L            equ 0x0100

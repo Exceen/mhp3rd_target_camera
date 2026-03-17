@@ -36,6 +36,8 @@ icon_y              equ 244
     .word   CURRENT_TASK
     .word   early_main
     .word   EARLY_HOOK
+    .word   btn_suppress
+    .word   BTN_PROC_RET
 .close
 
 .createfile "../bin/target_cam.bin", LOAD_ADD
@@ -50,7 +52,6 @@ selected_monster:
 .func main
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
-
 
     lib     t0, enabled
     bne     t0, zero, find_angle
@@ -171,6 +172,39 @@ no_flip:
 cycle_large_bitmap:
     .word 0x81CEE9FF  ; IDs 1-32
     .word 0x3FFC7F80  ; IDs 33-64
+
+; Button processing return hook — runs after buttons written, before handlers read
+; Replaces: lw ra, 0x24(sp) / lw s0, 0x20(sp) at 0x088A3594
+.func btn_suppress
+    lw      ra, 0x24(sp)           ; original
+    lw      s0, 0x20(sp)           ; original
+    ; Check if L held in the just-written button state
+    lui     t0, 0x09BB
+    lw      t1, 0x7A64(t0)
+    andi    t2, t1, BUTTON_L
+    beqz    t2, @@done
+    nop
+    ; L held: clear DpadLeft(0x80)+DpadRight(0x20) from all struct fields
+    lui     t2, 0xFFFF
+    ori     t2, t2, 0xFF5F
+    and     t1, t1, t2
+    sw      t1, 0x7A64(t0)
+    lw      t1, 0x7A68(t0)
+    and     t1, t1, t2
+    sw      t1, 0x7A68(t0)
+    lw      t1, 0x7A6C(t0)
+    and     t1, t1, t2
+    sw      t1, 0x7A6C(t0)
+    lw      t1, 0x7A70(t0)
+    and     t1, t1, t2
+    sw      t1, 0x7A70(t0)
+    lw      t1, 0x7A74(t0)
+    and     t1, t1, t2
+    sw      t1, 0x7A74(t0)
+@@done:
+    j       BTN_PROC_RET + 8       ; return to jr ra
+    nop
+.endfunc
 
 ; Early hook — runs unconditionally every frame
 ; Replaces: sw s1, 0xB4(sp) / swc1 f22, 0xE8(sp)
@@ -387,12 +421,13 @@ cycle_large_bitmap:
     nop
     ; Suppress vertical d-pad (Up+Down) when L held
     lw      t1, 0x7A64(s0)
-    ori     t1, t1, 0x0050         ; DpadUp(0x10) + DpadDown(0x40)
+    ori     t1, t1, 0x0050
     sw      t1, 0x7A64(s0)
     lw      t1, 0x7A68(s0)
     ori     t1, t1, 0x0050
     sw      t1, 0x7A68(s0)
 @@no_suppress:
+
     ; === Area check for icon brightness ===
     ; s5 = player entity (available in early hook context)
     lb      t5, 0xD6(s5)          ; player's current area byte
@@ -546,7 +581,6 @@ cycle_large_bitmap:
     li          a3, 0
     jal         sceGeListEnQueue
     li          a1, 0x0
-
 
 @render_return:
     lw          ra, 0x0C(sp)

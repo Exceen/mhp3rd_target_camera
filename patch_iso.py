@@ -52,7 +52,11 @@ def find_file_in_iso(iso_path, target_path_parts):
 def patch_iso(iso_path, eboot_offset):
     """Apply target camera patches to EBOOT.BIN inside the ISO."""
     with open("bin/adds.bin", "rb") as f:
-        load_add, hook, main_addr, render_addr, render_hook, task, early_main, early_hook = struct.unpack("8I", f.read(32))
+        adds_data = f.read()
+    load_add, hook, main_addr, render_addr, render_hook, task, early_main, early_hook = struct.unpack("8I", adds_data[:32])
+    btn_suppress = btn_hook = None
+    if len(adds_data) > 32:
+        btn_suppress, btn_hook = struct.unpack("2I", adds_data[32:40])
 
     # Check binary overlap
     with open("bin/target_cam.bin", "rb") as f:
@@ -85,11 +89,18 @@ def patch_iso(iso_path, eboot_offset):
     j_early = struct.pack('<II', 0x08000000 | (early_main >> 2), 0x00000000)
     patches.append((early_hook - EBOOT_BASE, j_early))
 
+    # Button processing return hook
+    if btn_suppress and btn_hook:
+        j_btn = struct.pack('<II', 0x08000000 | (btn_suppress >> 2), 0x00000000)
+        patches.append((btn_hook - EBOOT_BASE, j_btn))
+
     print(f"  target_cam.bin: 0x{load_add:08X}-0x{cam_end:08X} ({len(cam_data)} bytes)")
     print(f"  RENDER.bin:     0x{render_addr:08X}-0x{render_end:08X} ({len(render_data)} bytes)")
     print(f"  Free remaining: {free_end - render_end} bytes")
     print(f"  HOOK:           0x{hook:08X} -> 0x{main_addr:08X}")
     print(f"  EARLY_HOOK:     0x{early_hook:08X} -> 0x{early_main:08X}")
+    if btn_suppress:
+        print(f"  BTN_SUPPRESS:   0x{btn_hook:08X} -> 0x{btn_suppress:08X}")
 
     with open(iso_path, 'r+b') as f:
         for file_offset, data in patches:
