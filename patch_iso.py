@@ -133,12 +133,12 @@ _L {enabled_cw} 0x00000001
 _C1  TC Disable (L+DpadDown)
 _L 0xD0000000 0x10000140
 _L {enabled_cw} 0x00000000
-_C1  TC Select monster 1 (L+DpadLeft)
+_C0  TC Select monster 1 (L+DpadLeft) [legacy, assembly handles cycling]
 _L 0xD0000002 0x10000180
 _L 0xE1010000 {enabled_cw}
 _L {sel_mon_cw} 0x00000000
 _L {enabled_cw} 0x00000001
-_C1  TC Select monster 2 (L+DpadRight)
+_C0  TC Select monster 2 (L+DpadRight) [legacy, assembly handles cycling]
 _L 0xD0000002 0x10000120
 _L 0xE1010000 {enabled_cw}
 _L {sel_mon_cw} 0x00000004

@@ -76,21 +76,67 @@ return:
     lw      a1, 0x0(a1)
     beq     a1, zero, @@scan
     nop
+    lui     t0, 0x0880
+    sltu    at, a1, t0
+    bnez    at, @@scan
+    nop
     lh      t0, 0x246(a1)
-    bgtz    t0, @@try_lock          ; alive, try to lock
+    blez    t0, @@scan
+    nop
+    ; Check large monster bitmap
+    lb      t0, 0x62(a1)
+    beqz    t0, @@scan
+    nop
+    slti    at, t0, 65
+    beqz    at, @@scan
+    nop
+    addiu   t0, t0, -1
+    srl     t1, t0, 3
+    li      t2, cycle_large_bitmap
+    addu    t1, t2, t1
+    lbu     t1, 0(t1)
+    andi    t0, t0, 7
+    li      t2, 1
+    sllv    t2, t2, t0
+    and     t1, t1, t2
+    bnez    t1, @@try_lock
+    nop
+    j       @@scan
     nop
 
 @@scan:
-    ; Selected monster dead/null — find first alive large monster
-    li      t1, 0                   ; slot offset (0, 4, 8)
+    ; Selected monster dead/null/small — find first alive large monster
+    li      t1, 0
 @@scan_loop:
     li      a2, MONSTER_POINTER
     addu    a2, a2, t1
     lw      a1, 0(a2)
     beq     a1, zero, @@scan_next
     nop
+    lui     t0, 0x0880
+    sltu    at, a1, t0
+    bnez    at, @@scan_next
+    nop
     lh      t0, 0x246(a1)
-    bgtz    t0, @@try_lock          ; found alive monster
+    blez    t0, @@scan_next
+    nop
+    ; Check large monster bitmap
+    lb      t0, 0x62(a1)
+    beqz    t0, @@scan_next
+    nop
+    slti    at, t0, 65
+    beqz    at, @@scan_next
+    nop
+    addiu   t0, t0, -1
+    srl     t2, t0, 3
+    li      t3, cycle_large_bitmap
+    addu    t2, t3, t2
+    lbu     t2, 0(t2)
+    andi    t0, t0, 7
+    li      t3, 1
+    sllv    t3, t3, t0
+    and     t2, t2, t3
+    bnez    t2, @@try_lock
     nop
 @@scan_next:
     addiu   t1, t1, 4
@@ -178,6 +224,12 @@ cycle_large_bitmap:
 .func btn_suppress
     lw      ra, 0x24(sp)           ; original
     lw      s0, 0x20(sp)           ; original
+    ; Only suppress in quest (overlay loaded) — don't affect menus
+    li      t0, CURRENT_TASK
+    lhu     t0, 0(t0)
+    li      t1, 0x6167
+    bne     t0, t1, @@done
+    nop
     ; Check if L held in the just-written button state
     lui     t0, 0x09BB
     lw      t1, 0x7A64(t0)
@@ -318,7 +370,11 @@ cycle_large_bitmap:
     li      t2, MONSTER_POINTER
     addu    t2, t2, t0
     lw      t2, 0(t2)
-    beq     t2, zero, @@sr_next   ; null pointer, skip
+    beq     t2, zero, @@sr_next
+    nop
+    lui     t3, 0x0880
+    sltu    at, t2, t3
+    bnez    at, @@sr_next
     nop
     lh      t3, 0x246(t2)
     blez    t3, @@sr_next          ; dead, skip
@@ -383,6 +439,10 @@ cycle_large_bitmap:
     lw      t2, 0(t2)
     beq     t2, zero, @@sl_next
     nop
+    lui     t3, 0x0880
+    sltu    at, t2, t3
+    bnez    at, @@sl_next
+    nop
     lh      t3, 0x246(t2)
     blez    t3, @@sl_next
     nop
@@ -410,10 +470,16 @@ cycle_large_bitmap:
 
 @@btn_done:
     ; === D-pad camera suppression when L is held ===
-    ; Button state is inverted (1=not pressed, 0=pressed)
-    ; SET d-pad bits to force "not pressed"
     lw      t0, 0x7A7C(s0)
     beq     t0, zero, @@no_suppress
+    nop
+    lui     t2, 0x0880
+    sltu    at, t0, t2
+    bnez    at, @@no_suppress
+    nop
+    lui     t2, 0x0A00
+    sltu    at, t0, t2
+    beqz    at, @@no_suppress
     nop
     lhu     t1, 0(t0)
     andi    t2, t1, BUTTON_L
@@ -429,7 +495,15 @@ cycle_large_bitmap:
 @@no_suppress:
 
     ; === Area check for icon brightness ===
-    ; s5 = player entity (available in early hook context)
+    ; s5 = player entity (validate before use — may be invalid during quest init)
+    lui     t0, 0x0880
+    sltu    at, s5, t0
+    bnez    at, @@skip
+    nop
+    lui     t0, 0x0A00
+    sltu    at, s5, t0
+    beqz    at, @@skip
+    nop
     lb      t5, 0xD6(s5)          ; player's current area byte
     li      t0, PLAYER_AREA_ADDR
     sb      t5, 0(t0)
@@ -614,6 +688,11 @@ cycle_large_bitmap:
     addu        a1, a1, a0
     lw          a0, 0x0(a1)
     beql        a0, zero, @@fail
+    li          v0, 0x0
+    ; Validate entity pointer
+    lui         a1, 0x0880
+    sltu        at, a0, a1
+    bnez        at, @@fail
     li          v0, 0x0
     ; Check HP > 0 (entity+0x246 = current HP, signed halfword)
     lh          a1, 0x246(a0)
