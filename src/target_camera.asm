@@ -51,19 +51,6 @@ selected_monster:
     lw      v0, 0x74(s5)
     lbu     a2, 0x8F(s1)
 
-    ; Save player entity pointer (a0 = player entity at hook point)
-    ; Pointer stays valid for the entire quest
-    lui     t0, 0x0880
-    sltu    at, a0, t0
-    bnez    at, @@skip_save
-    nop
-    lui     t0, 0x0A00
-    sltu    at, a0, t0
-    beqz    at, @@skip_save
-    nop
-    li      t1, PLAYER_ENTITY_ADDR
-    sw      a0, 0(t1)
-@@skip_save:
 
     lib     t0, enabled
     bne     t0, zero, find_angle
@@ -200,6 +187,7 @@ cycle_large_bitmap:
     li      t0, RENDER_HOOK
     li      t1, 0x08000000 | (render >> 2)
     sw      t1, 0(t0)
+
     sw      zero, 4(t0)
     ; === Button handling (MHFU-style with trigger debounce) ===
     ; Read buttons
@@ -406,13 +394,8 @@ cycle_large_bitmap:
     sw      t1, 0x7A68(s0)
 @@no_suppress:
     ; === Area check for icon brightness ===
-    ; Read player area from saved entity pointer (set by cam_main on first L press)
-    li      t5, PLAYER_ENTITY_ADDR
-    lw      t5, 0(t5)             ; player entity pointer
-    beqz    t5, @@skip            ; not initialized yet (no L press yet)
-    nop
-    lb      t5, 0xD6(t5)          ; player's current area byte
-    ; Save to PLAYER_AREA_ADDR for reference
+    ; s5 = player entity (available in early hook context)
+    lb      t5, 0xD6(s5)          ; player's current area byte
     li      t0, PLAYER_AREA_ADDR
     sb      t5, 0(t0)
     li      t4, 0                  ; area_mask = 0
@@ -563,6 +546,7 @@ cycle_large_bitmap:
     li          a3, 0
     jal         sceGeListEnQueue
     li          a1, 0x0
+
 
 @render_return:
     lw          ra, 0x0C(sp)
@@ -739,5 +723,6 @@ vertices:
 select_vertices:
     vertex      129, 56, 0xFFFFFFFF, icon_x+(11*icon_size/42), icon_y+(32*icon_size/42), 0
     vertex      140, 63, 0xFFFFFFFF, icon_x+((11+22)*icon_size/42), icon_y+((32+14)*icon_size/42), 0
+
 
 .close
