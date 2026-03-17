@@ -135,6 +135,20 @@ _C1  TC Disable (L+DpadDown)
 _L 0xD0000001 0x10000140
 _L {enabled_cw} 0x00000000
 _L 0x{load_add + 1 - CW_BASE:08X} 0x00000001
+_C0 ---- Monster count D-guard examples ----
+_L 0x00000000 0x00000000
+_C0  Example: 0 alive large monsters
+_L 0xD0000C08 0x00000000
+_L 0x00000000 0x00000000
+_C0  Example: 1 alive large monster
+_L 0xD0000C08 0x00000001
+_L 0x00000000 0x00000000
+_C0  Example: 2 alive large monsters
+_L 0xD0000C08 0x00000002
+_L 0x00000000 0x00000000
+_C0  Example: 3 alive large monsters
+_L 0xD0000C08 0x00000003
+_L 0x00000000 0x00000000
 """
     return cheats.strip() + "\n"
 
