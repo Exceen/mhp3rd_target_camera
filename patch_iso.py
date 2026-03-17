@@ -123,16 +123,21 @@ def generate_cheats(load_add):
     cheats = f"""
 _C0 ==== Target Camera =========
 _L 0x00000000 0x00000000
+_C1  TC Reset disabled flag (not in quest)
+_L 0xE1016167 0x01457CA0
+_L 0x{load_add + 1 - CW_BASE:08X} 0x00000000
 _C1  TC Auto-activate (on quest entry)
 _L 0xE0020000 {enabled_cw}
 _L 0xE1010000 {mp0_hi}
 _L {enabled_cw} 0x00000001
 _C1  TC Enable (L+DpadUp)
-_L 0xD0000000 0x10000110
+_L 0xD0000001 0x10000110
 _L {enabled_cw} 0x00000001
+_L 0x{load_add + 1 - CW_BASE:08X} 0x00000000
 _C1  TC Disable (L+DpadDown)
-_L 0xD0000000 0x10000140
+_L 0xD0000001 0x10000140
 _L {enabled_cw} 0x00000000
+_L 0x{load_add + 1 - CW_BASE:08X} 0x00000001
 _C0  TC Select monster 1 (L+DpadLeft) [legacy, assembly handles cycling]
 _L 0xD0000002 0x10000180
 _L 0xE1010000 {enabled_cw}
