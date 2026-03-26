@@ -46,7 +46,8 @@ enabled:
     .byte   0              ; +0 (CWCheat: 0x001E0400)
 selected_monster:
     .byte   0              ; +1 (CWCheat: 0x001E0401)
-.align 4
+icon_x_pos:
+    .halfword icon_x       ; +2 (CWCheat: 0x101E0402) — dynamic X base, only written by CWCheat
 
 
 .func main
@@ -692,6 +693,21 @@ cycle_large_bitmap:
     jal         set_cursor_pos
     nop
 
+    ; Patch icon vertex X positions from dynamic icon_x_pos
+    lih         a0, icon_x_pos
+    li          a1, vertices
+    sh          a0, 0x08(a1)                        ; V0: base_x
+    addiu       a2, a0, icon_size
+    sh          a2, 0x18(a1)                        ; V1: base_x + icon_size
+    addiu       a2, a0, icon_stride
+    sh          a2, 0x28(a1)                        ; V2: base_x + icon_stride
+    addiu       a2, a0, icon_stride + icon_size
+    sh          a2, 0x38(a1)                        ; V3: base_x + icon_stride + icon_size
+    addiu       a2, a0, icon_stride * 2
+    sh          a2, 0x48(a1)                        ; V4: base_x + icon_stride*2
+    addiu       a2, a0, icon_stride * 2 + icon_size
+    sh          a2, 0x58(a1)                        ; V5: base_x + icon_stride*2 + icon_size
+
     li          a0, gpu_code
     li          a2, 0
     li          a3, 0
@@ -713,11 +729,13 @@ cycle_large_bitmap:
 ; a0 = vertex offset (0x00, 0x10, 0x20) = compacted position * 16
 .func set_cursor_pos
     srl         a0, a0, 4          ; position index (0, 1, 2)
-    li          at, select_vertices
     li          a2, icon_stride
     mult        a0, a2
+    lih         a3, icon_x_pos     ; load dynamic X base (fills mult latency, clobbers at)
     mflo        a0
-    addiu       a0, a0, icon_x+(11*icon_size/42)
+    addu        a0, a0, a3
+    addiu       a0, a0, (11*icon_size/42)
+    li          at, select_vertices
     sh          a0, 0x08(at)
     addiu       a0, a0, (22*icon_size/42)
     sh          a0, 0x18(at)

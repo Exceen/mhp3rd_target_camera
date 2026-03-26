@@ -135,6 +135,8 @@ _C1  TC Disable (L+DpadDown)
 _L 0xD0000001 0x10000140
 _L {enabled_cw} 0x00000000
 _L 0x{load_add + 1 - CW_BASE:08X} 0x00000001
+_C0  Icon X position (default 3)
+_L 0x1{load_add + 2 - CW_BASE:07X} 0x00000003
 _C0 ---- Monster count D-guard examples ----
 _L 0x00000000 0x00000000
 _C0  Example: 0 alive large monsters
