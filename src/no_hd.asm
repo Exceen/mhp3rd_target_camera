@@ -3,14 +3,14 @@
 .relativeinclude on
 
 CURRENT_TASK        equ 0x09C57CA0
-LOAD_ADD            equ 0x089E0400
+LOAD_ADD            equ 0x089E0900
 MONSTER_POINTER     equ 0x09DA9860
 HOOK                equ 0x088e5f8c
 EARLY_HOOK          equ 0x088E3B2C
 RENDER_HOOK         equ 0x09D63ADC
 ViewMatrix          equ 0x09B486B0
 sceGeListEnQueue    equ 0x08960CF8
-RENDER_LOAD         equ 0x089E0C00
+RENDER_LOAD         equ 0x089E1100
 SELECTED_MON_ADDR   equ 0x08800C00
 TRIGGER_ADDR        equ 0x08800C02     ; debounce halfword (0xFAFA = triggered)
 ALIVE_COUNT_ADDR    equ 0x08800C08     ; byte: number of alive large monsters
